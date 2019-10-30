@@ -47,7 +47,7 @@ RUN lsw --eval '(cl-user::quit)'
 # compile swank
 RUN abcl -- --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)'
 WORKDIR /home/lsw/repos/lsw2/owl2/bin
-ENTRYPOINT lsw --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)'
+ENTRYPOINT lsw --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)' --eval '(in-package :logic)' --eval '(when (probe-file "/local/init.lisp") (load "/local/init.lisp"))'
 # FROM openjdk:7u131-jdk-alpine
 # RUN apk update
 # RUN apk add bash
