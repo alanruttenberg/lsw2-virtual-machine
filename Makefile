@@ -9,6 +9,9 @@ docker-squashed-lsw: docker-reasoners
 	docker build --squash  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)-s" .
 	docker tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
 
+run-lsw:
+	docker run -it --rm -v`pwd`:"/local" lsw2/lisp
+
 docker-clean-containers:
 	docker container rm `docker ps -a | cut -f 1 -d " " | tail`
 
