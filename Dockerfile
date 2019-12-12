@@ -27,7 +27,7 @@ RUN cd repos && git clone --branch beta --depth 1 https://github.com/alanruttenb
 USER lsw
 RUN /home/lsw/repos/lsw2/bin/lsw
 USER 0
-RUN apt-get remove -y --auto-remove git ant
+RUN apt-get remove -y --auto-remove ant
 RUN rm -rf /usr/local/share/doc
 USER lsw
 WORKDIR /home/lsw/repos/lsw2/owl2/lib
@@ -47,12 +47,4 @@ RUN lsw --eval '(cl-user::quit)'
 # compile swank
 RUN abcl -- --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)'
 WORKDIR /home/lsw/repos/lsw2/owl2/bin
-ENTRYPOINT lsw --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)' --eval '(in-package :logic)' --eval '(when (probe-file "/local/init.lisp") (load "/local/init.lisp"))'
-# FROM openjdk:7u131-jdk-alpine
-# RUN apk update
-# RUN apk add bash
-# RUN apk add maven
-# RUN adduser -D -S -s /bin/bash -h /home/lsw lsw
-# COPY --from=0 /home/lsw /home/lsw
-# RUN chown -R lsw /home/lsw
-# USER lsw
+ENTRYPOINT lsw --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)' --eval '(progn (in-package :logic) (setq *print-case* :downcase))' --eval '(when (probe-file "/local/init.lisp") (load "/local/init.lisp"))'
