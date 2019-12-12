@@ -23,7 +23,7 @@ make docker-lsw
 ```
 To run LSW and interact with a repl
 ```
-docker run -it lsw2/lisp
+make run-lsw
 ```
 To run LSW from docker image inside your local emacs:
  - put https://github.com/emacs-pe/docker-tramp.el somewhere, add the path to the emacs load-path, and (require 'docker-tramp)
