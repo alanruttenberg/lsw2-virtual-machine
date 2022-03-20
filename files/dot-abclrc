@@ -1,44 +1,163 @@
 (in-package :cl-user)
 
-(defvar *default-verbosity*
-  (if (member "-q" *command-line-argument-list* :test 'equal)
-      nil
-      (if (member "-v" *command-line-argument-list*)
-        t
-	  (if (getenv "ABCL_VERBOSE") t nil))))
+
+(defun implementation-identifier ()
+    "Return a string that identifies the ABI of the current implementation,
+suitable for use as a directory name to segregate Lisp FASLs, C dynamic libraries, etc."
+    (substitute-if
+     #\_ #'(lambda (x) (find x " /:;&^\\|?<>(){}[]$#`'\""))
+     (format nil "~(~a~@{~@[-~a~]~}~)"
+             (or (implementation-type) (lisp-implementation-type))
+             (lisp-version-string)
+             (or (operating-system) (software-type))
+             (or (architecture) (machine-type)))))
+
+(setf (get :swank-abcl-source-path :path) (list (namestring (truename "~/repos/abcl/src/"))
+                                                (namestring (truename "~/repos/abcl/"))))
+
+(setq *default-verbosity*
+      (if (member "-q" *command-line-argument-list* :test 'equal) nil
+	  (if (member "-v" *command-line-argument-list* :test 'equal)
+	      t
+	      (if (equal "1" (getenv "ABCL_VERBOSE")) t nil))))
 
 (setq *load-verbose* *default-verbosity*)
 (setq *compile-verbose* *default-verbosity*)
-;(setq system::*verbose* *default-verbosity*)
+
+(unless  (member "--no-quicklisp" *command-line-argument-list* :test 'equal)
+  ;;  (require :quicklisp-abcl)
+  (when (probe-file "~/repos/quicklisp/setup.lisp")
+    (load "~/repos/quicklisp/setup")
+  
+;  (set (intern "*QUICKLISP-PARENT-DIR*" 'quicklisp-abcl) "~/repos/")
+    (set (intern  "*QUICKLOAD-VERBOSE*" 'quicklisp-client) *default-verbosity*)))
+
+(require :asdf)
+;; Add origin jvm and current jvm to fasl directory
+(multiple-value-bind (version builtwith arch) (lisp-implementation-version)
+  (let ((running-java (jstatic "getProperty" "java.lang.System" "java.version"))
+	(runnin-arch (jstatic "getProperty" "java.lang.System" "os.arch"))
+	(current-namestring (namestring uiop/configuration:*user-cache*)))
+    (setq current-namestring (subseq current-namestring 0 (- (length current-namestring) 1)))
+    (setq uiop::*user-cache* 
+	  (pathname (substitute #\- #\_ (format nil "~a-~a-in-java~a/" current-namestring builtwith running-java))))))
+
+(setq asdf::*verbose-out* *default-verbosity*)
+
+;; Avoid the extreme annoyance of having an (in-package <whatever the repl package is>) compiled into the fasl, which
+;; breaks loading if in a context where whatever the repl package was doesn't exist
+(defmethod asdf::perform :around ((op asdf::operation) ignore)
+  (declare (ignore ignore))
+  (let ((*package* (find-package :cl-user)))
+    (call-next-method)))
+
+(require :abcl-contrib)
+
+(when (not (member "--foreground" *command-line-argument-list* :test 'equal))
+    (push :background-.abclrc *features*))
+
+(funcall #+:background-.abclrc 'threads::make-thread  #-:background-.abclrc 'funcall
+(lambda()
+(pushnew :abcl-introspect *features*)
+(require :jss)
+(funcall (intern "ENSURE-COMPATIBILITY" "JSS"))
+(require :asdf-mvn-module)
+(require :abcl-introspect)
+;; IF THERE ARE PROBLEMS:
+;; -- Error when loading maven.acbl = delete the fasl from ~/.cache and try again.
+
+
+(defvar *standard-readtable-protected-systems* (make-hash-table :test 'equalp))
+(flet ((system-being-loaded (thing)
+	 (labels ((pparent (thing)
+		    (if (typep thing 'asdf::system)
+			thing
+			(pparent (asdf::component-parent thing)))))
+	   (pparent thing))))
+  (defmethod asdf::call-with-around-compile-hook :around ((c asdf::cl-source-file) function)
+    (let ((system (system-being-loaded c)))
+      (if (gethash (asdf::component-name system) cl-user::*standard-readtable-protected-systems*)
+	  (let ((cl-user::*inhibit-read-uri* t))
+	    (call-next-method))
+	  (call-next-method)))))
+
+(setf (gethash "paiprolog" *standard-readtable-protected-systems*) t) 
+(setf (gethash "fiveam" *standard-readtable-protected-systems*) t)
+(setf (gethash "fiveam/test" *standard-readtable-protected-systems*) t)
+(setf (gethash "trivia.level2" *standard-readtable-protected-systems*) t)
+(setf (gethash "trivia.level3" *standard-readtable-protected-systems*) t)
+(setf (gethash "cl-autowrap" *standard-readtable-protected-systems*) t)
 
 ;; never interested in this
 (setq ext::*warn-on-redefinition* nil)
 
-(require :asdf)
-(setq asdf::*verbose-out* *default-verbosity*)
 
-(require :abcl-contrib)
 
-(require :abcl-asdf)
-;;(setq abcl-asdf::*maven-verbose*  nil)
+(defparameter *umls-username* "alanruttenberg")
+(defparameter *umls-password* "pony-cake-rail1")
 
-(unless  (member "--no-quicklisp" *command-line-argument-list* :test 'equal)
-  (setq cl-user::*quicklisp-parent-dir* "~/repos/")
-  (require :quicklisp-abcl)
-
-(set (intern  "*QUICKLOAD-VERBOSE*" 'quicklisp-client) *default-verbosity*))
+(setq *browser* "safari")
 
 (setf (logical-pathname-translations "abcl-src")
-      `(("**;*.*" "~/repos/abcl/src/**/*.*")))
+      `(("**;*.*" "/Users/alanr/repos/abcl/src/**/*.*")))
+
+(defvar *lsw-configuration* nil)
+
+(setf (getf *lsw-configuration* :web-cache) "/Users/alanr/Desktop/Data/webcache/")
+
+(defvar *ohd-dropbox-translations*
+  `("dropbox;owl-translations;**;*.*"
+    ,(make-pathname :directory
+		    '(:ABSOLUTE "Big" "Cloud" "Dropboxes" "alanruttenberg@gmail.com" "Dropbox"
+		      "DIM grant projects" "R21 Work" "Data"
+		      "Translated to OWL" :wild-inferiors)
+		    :name :wild
+		    :type :wild)))
 
 
-(push "~/repos/bfo-theory/lsw-src/" asdf::*central-registry*)
+(setq *prowl-api-key*  "687c5758c6abcd811df3f53592204d7cce49a369")
 
-;; get your own prowl key - register here https://www.prowlapp.com/register.php,  then https://www.prowlapp.com/api_settings.php to get yours
-;; then uncomment the next line and put your key where the xxxx are
-;; (setq *prowl-api-key*  "xxxx")
+(defparameter *student-productivity-data-root* "/Volumes/Research\ Data/student-productivity/")
 
-(defvar *running-in-vagrant* nil)
-(defvar *vampire-executable* "/usr/local/bin/vampire")
-(defvar *z3-executable* "/usr/bin/z3")
-(defvar *ladr-binaries* "/usr/bin/")
+(setq *running-in-vagrant* nil)
+
+(setq *use-cache-aware-load-ontology* t)
+
+(setq *vampire-box-name* "vampirebox")
+
+;(ql:quickload :named-readtables)
+
+(defun fix-duplicate-sources()
+  (do-all-symbols (s)
+    (when (find 'sys::source (symbol-plist s))
+      (setf (get s 'sys::source)
+	    (remove-duplicates (get s 'sys::source) 
+			       :test (lambda (a b) 
+				       (and (equalp (first a) (first b))			; spec
+					    (equalp (second a) (second b))			; location
+					    :from-end t)))))))
+
+(asdf/source-registry::initialize-source-registry '(:source-registry (:directory "~/repos/asdf-source-registry/") :inherit-configuration))
+(defun asdf-reregister()
+  (asdf::clear-source-registry)
+  (asdf/source-registry::initialize-source-registry '(:source-registry (:directory "~/repos/asdf-source-registry/") :inherit-configuration)))
+  
+(progn #'disassemble)
+;(defvar sys::*disassemblers* nil)
+(asdf::load-system :cfr)
+(sys::choose-disassembler :cfr)
+
+(defun :inspect (thing)
+  (cl:inspect thing)
+  (values))
+
+(when (ignore-errors (asdf::find-system "atils"))
+  (asdf::load-system "atils"))
+
+(push (lambda() (format t "Checking when swank init happens"))
+      (get :after-swank-init-hook :hooks))
+
+(format *debug-io* ".abclrc loaded~%")
+)
+#+:background-.abclrc :name #+:background-.abclrc 'load-abclrc
+)

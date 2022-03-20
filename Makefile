@@ -1,52 +1,52 @@
-docker-reasoners: 
-	cd docker-reasoners ; docker build -t lsw2/reasoners
+# https://stackoverflow.com/a/5907409 how-does-make-app-know-default-target-to-build-if-no-target-is-specified
+.DEFAULT_GOAL := list
 
-docker-lsw: docker-reasoners 
-	docker build  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" .
-	docker tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
+# https://github.com/containers/podman/issues/11541 clock problem
+# for now: podman machine ssh sudo hwclock --hctosys
+build: # doc
+	cp ~/.abclrc files/dot-abclrc
+	bin/sync-machine-time
+	podman  build -f Dockerfile -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" .
+	podman tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
 
-docker-squashed-lsw: docker-reasoners 
-	docker build --squash  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)-s" .
-	docker tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
+squashed: 
+	podman build --squash  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)-s" .
+	podman tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
 
-run-lsw:
-	docker run -it --rm -v`pwd`:"/local" lsw2/lisp
+run:
+	bin/sync-machine-time
+# This is broken in podman
+#	podman run -it -v `pwd`:"/local" lsw2/lisp
+# CHOSTNAME in the container will be ip address of the host
+	podman run -it --publish-all --privileged=true -e CHOSTNAME=`ifconfig en0 | grep "inet " | cut -d " " -f 2`  lsw2/lisp # -p 10.2.0.2:12345:22/tcp
 
-docker-clean-containers:
-	docker container rm `docker ps -a | cut -f 1 -d " " | tail`
+# https://www.thegeekstuff.com/2010/07/bash-string-manipulation/
+export-checkpoint:
+	ID=`podman container list | grep lsw | cut -d " " -f 1`; sudo podman container checkpoint --file-locks --tcp-established $$ID -e lsw-checkpoint-$$ID.tar.gz
 
-vagrant-lsw:
-	vagrant up
-	vagrant suspend
+# If we are checkpointing, get rid of the old exited containers
+checkpoint:
+	podman container ls -f "status=exited" | grep lsw2 | cut -d " " -f 1 | xargs podman rm
+	ID=`podman container list | grep lsw | cut -d " " -f 1`; sudo podman container checkpoint --keep --file-locks --tcp-established $$ID 
 
-install-criu:
-	docker run --rm -it --privileged --pid=host boucher/criu-for-mac
+restore-from-export:
+	bin/sync-machine-time
+	podman container prune -f
+	sudo podman container restore --keep --file-locks --tcp-established --import `ls -t -1 lsw-checkpoint-*.tar.gz | head -1`
 
-build-criu:
-	docker build -t boucher/criu-for-mac ~/repos/criu-for-mac/
+resume:
+	bin/sync-machine-time
+	ID=`podman container list --all | grep lsw | cut -d " " -f 1`; sudo podman container restore  --keep --file-locks --tcp-established $$ID; podman container attach $$ID
 
-lsw-checkpoint:	.checkpoint
+init:
+	podman machine init --cpus 8 --memory 16384 --rootful #-p 137:137/tcp -p 138:138/tcp -p 139:139/tcp # -v /Users:/mnt/User -see notes
 
-.container:
-	rm -f .checkpoint
-	docker run --net=host -id lsw2/lisp /home/lsw/repos/lsw2/bin/lsw > .container
-	sleep 20
+qcow-size:
+	ls -l -h /Users/alanr/.local/share/containers/podman/machine/qemu/*.qcow2 
 
-.checkpoint: .container
-	docker checkpoint create `cat .container` cp1
-	cp .container .checkpoint
-
-start-lsw-checkpoint: .checkpoint
-	docker start `cat .checkpoint` --checkpoint cp1
-
-stop-lsw-checkpoint: .checkpoint
-	docker kill `cat .checkpoint`
-
-docker-su:
-	screen ~/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux/tty 
-
+# http://www.microhowto.info/howto/suppress_echoing_of_commands_in_a_makefile.html
 # https://stackoverflow.com/questions/4219255/how-do-you-get-the-list-of-targets-in-a-makefile
-.PHONY: no_targets__ list
-no_targets__:
+.PHONY: list
 list:
-	sh -c "$(MAKE) -p no_targets__ | awk -F':' '/^[a-zA-Z0-9][^\$$#\/\\t=]*:([^=]|$$)/ {split(\$$1,A,/ /);for(i in A)print A[i]}' | grep -v '__\$$' | grep -v Makefile | grep -v 'make' | sort"
+	@echo Targets:
+	@LC_ALL=C $(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$'

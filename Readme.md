@@ -1,30 +1,52 @@
 # Virtualizing LSW
 
-There are two options for virtualizing lsw: vagrant and docker. Vagrant creates a full image which can be suspended,
-which means you can start LSW and when restarting the vm it (and all the java/lisp state) will be saved. Docker has the
-advantage of using less space (1GB vs 4GB), starting up more quickly, and being able to run multiple instances.
-Note 10-11-2019: I haven't been using the vagrant virtualization for a while. Use Docker.
+You must install [podman](https://podman.io/_ first, at least version 4. On a mac I use [MacPorts](https://www.macports.org/)```sudo port install podman``` 
 
-## Docker
-
-You must install docker first from https://www.docker.com/get-docker
-
-To build and image with lsw, abcl, and required binaries and libraries, you will need this directory
-downloaded. Until I split this into a separate repository check out a minimal LSW
-
+## Build the image
 ```
-git clone https://github.com/alanruttenberg/lsw2-virtual-machine.git
-cd virtual-machine
+make image
 ```
 
-Build the image
-```
-make docker-lsw
-```
+## Run the image
 To run LSW and interact with a repl
 ```
-make run-lsw
+make run
 ```
+You will be put into a shell. Run ```./lsw``` and wait for the prompt.
+
+## Save the image
+To save the image to a file, for instance to upload it somewhere
+```
+make save
+```
+
+## Checkpoint 
+Checkpoint saves the state of a running LSW. When at the prompt, in another terminal, 
+```
+make checkpoint
+```
+This will make a file called lsw-checkpoint-<container-id>.tar.gz
+
+Note, this is [broken](https://github.com/containers/podman/issues/12053) for the moment.
+
+## Resume a checkpoint 
+```
+make restore
+```
+This will resume the most recent saved checkpoint. Note that you can have only one copy running. 
+If the container is stopped but not pruned you will get an error. In that case use 
+```
+make resume
+```
+Otherwise you can get rid of old non-running containers with 
+```
+podman container prune 
+```
+
+## Inside emacs
+
+(instructions out of date)
+
 To run LSW from docker image inside your local emacs:
  - put https://github.com/emacs-pe/docker-tramp.el somewhere, add the path to the emacs load-path, and (require 'docker-tramp)
  - clone https://github.com/daewok/slime-docker and add the path you cloned in to load-path, and (require 'slime-docker)
@@ -59,32 +81,9 @@ I added the below definition of get-ip-address to my .emacs, which seems to work
 	     0 -1))
 ```
 
-## Vagrant
+## Of note
 
-This uses ansible to build a virtual machine that has LSW installed, as well as emacs and
-slime to run it.  
+The CRaC (Coordinated Restore at Checkpoint) Project researches coordination of Java programs with mechanisms to checkpoint (make an image of, snapshot) a Java instance while it is executing. Restoring from the image could be a solution to some of the problems with the start-up and warm-up times. The primary aim of the Project is to develop a new standard mechanism-agnostic API to notify Java programs about the checkpoint and restore events. Other research activities will include, but will not be limited to, integration with existing checkpoint/restore mechanisms and development of new ones, changes to JVM and JDK to make images smaller and ensure they are correct.
 
-In the virtual-machines directory, execute "vagrant up", and the first time it will install what's needed, so it takes a
-little longer.
-
-If there's an error and you can fix it, you can restart the deployment with
-
-"vagrant --verbose provision --provision-with resume"
-
-Once the box is running you get into it with "vagrant ssh"
-
-Inside you run emacs, and within emacs M-x slime, which starts up the environment.
-
-You will have access to hermit, pellet, elk,  fact++, z3, vampire, and prover9 
-
-Software
-- vagrant: https://www.vagrantup.com/downloads.html
-- ansible: http://docs.ansible.com/ansible/latest/intro_installation.html
-- virtualbox: https://www.virtualbox.org/wiki/Downloads
-
-notes:
- - I have had trouble with recent versions of virtualbox on OS X 10.10, so I use version 5.1.10
- - There are installers for vagrant and for virtualbox, but ansible not, so:
-     - Instructions for OS X https://valdhaus.co/writings/ansible-mac-osx/
-     - Instructions for Windows https://ericsysmin.com/2016/07/28/install-ansible-on-windows/
-
+https://github.com/CRaC
+https://github.com/CRaC/docs/blob/master/STEP-BY-STEP.md

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# https://github.com/containers/podman/issues/11541#issuecomment-1038436498
+podman machine ssh "sudo chronyc -m 'burst 4/4' makestep; date -u" 1> /dev/null 2> /dev/null
