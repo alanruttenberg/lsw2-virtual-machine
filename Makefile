@@ -15,10 +15,11 @@ squashed:
 
 run:
 	bin/sync-machine-time
-# This is broken in podman
+# This is broken in podman, or rather it doesn't do what you think it does. the host volume mounted is from the podman machine.
 #	podman run -it -v `pwd`:"/local" lsw2/lisp
 # CHOSTNAME in the container will be ip address of the host
-	podman run -it --publish-all --privileged=true -e CHOSTNAME=`ifconfig en0 | grep "inet " | cut -d " " -f 2`  lsw2/lisp # -p 10.2.0.2:12345:22/tcp
+#	podman run -it --publish-all --privileged=true -e CHOSTNAME=`ifconfig en0 | grep "inet " | cut -d " " -f 2`  -v /mnt/Users:/Users lsw2/lisp   # -p 10.2.0.2:12345:22/tcp
+	podman run -it --privileged=true -e CHOSTNAME=`ifconfig en0 | grep "inet " | cut -d " " -f 2`  -v /mnt/Users:/Users lsw2/lisp   
 
 # https://www.thegeekstuff.com/2010/07/bash-string-manipulation/
 export-checkpoint:
@@ -28,6 +29,11 @@ export-checkpoint:
 checkpoint:
 	podman container ls -f "status=exited" | grep lsw2 | cut -d " " -f 1 | xargs podman rm
 	ID=`podman container list | grep lsw | cut -d " " -f 1`; sudo podman container checkpoint --keep --file-locks --tcp-established $$ID 
+
+prune:
+	podman container prune -f
+	podman image prune -f
+
 
 restore-from-export:
 	bin/sync-machine-time
@@ -39,7 +45,7 @@ resume:
 	ID=`podman container list --all | grep lsw | cut -d " " -f 1`; sudo podman container restore  --keep --file-locks --tcp-established $$ID; podman container attach $$ID
 
 init:
-	podman machine init --cpus 8 --memory 16384 --rootful #-p 137:137/tcp -p 138:138/tcp -p 139:139/tcp # -v /Users:/mnt/User -see notes
+	podman machine init --cpus 8 --memory 16384 --rootful -v /Users:/mnt/Users
 
 qcow-size:
 	ls -l -h /Users/alanr/.local/share/containers/podman/machine/qemu/*.qcow2 

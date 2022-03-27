@@ -26,11 +26,14 @@ suitable for use as a directory name to segregate Lisp FASLs, C dynamic librarie
 
 (unless  (member "--no-quicklisp" *command-line-argument-list* :test 'equal)
   ;;  (require :quicklisp-abcl)
-  (when (probe-file "~/repos/quicklisp/setup.lisp")
+  (if (probe-file "~/repos/quicklisp/setup.lisp")
     (load "~/repos/quicklisp/setup")
+    (if (probe-file "~/quicklisp/setup.lisp")
+        (load "~/quicklisp/setup")
+        (error "no quicklisp")))
   
 ;  (set (intern "*QUICKLISP-PARENT-DIR*" 'quicklisp-abcl) "~/repos/")
-    (set (intern  "*QUICKLOAD-VERBOSE*" 'quicklisp-client) *default-verbosity*)))
+    (set (intern  "*QUICKLOAD-VERBOSE*" 'quicklisp-client) *default-verbosity*))
 
 (require :asdf)
 ;; Add origin jvm and current jvm to fasl directory
