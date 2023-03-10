@@ -5,7 +5,7 @@
 # for now: podman machine ssh sudo hwclock --hctosys
 build: # doc
 	cp ~/.abclrc files/dot-abclrc
-	bin/sync-machine-time
+#	bin/sync-machine-time
 	podman  build -f Dockerfile -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" .
 	podman tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
 
@@ -36,7 +36,7 @@ prune:
 
 
 restore-from-export:
-	bin/sync-machine-time
+#	bin/sync-machine-time
 	podman container prune -f
 	sudo podman container restore --keep --file-locks --tcp-established --import `ls -t -1 lsw-checkpoint-*.tar.gz | head -1`
 

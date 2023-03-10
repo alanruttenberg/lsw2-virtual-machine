@@ -34,8 +34,7 @@ RUN useradd -ms /bin/bash lsw
 # Dummy password, so what's the point?
 RUN echo "lsw:lsw" | chpasswd
 
-# Add groups sudo if you want to do any sudo. Added root in attempt to
-  write mounted volume without sudo, but failed.
+# Add groups sudo if you want to do any sudo. Added root in attempt to  write mounted volume without sudo, but failed.
 RUN sudo usermod -aG sudo,root lsw
 
 # Copy over separately built vampire. use --chmod vs chmod in another line as the latter lands up copying the file to the new layer.

@@ -36,6 +36,20 @@ suitable for use as a directory name to segregate Lisp FASLs, C dynamic librarie
     (set (intern  "*QUICKLOAD-VERBOSE*" 'quicklisp-client) *default-verbosity*))
 
 (require :asdf)
+
+(define-condition asdf::bad-system-name (warning)
+    ((name :initarg :name :reader component-name)
+     (source-file :initarg :source-file :reader system-source-file))
+    (:report (lambda (c s)
+               #|(let* ((file (system-source-file c))
+                      (name (component-name c))
+                      (asd (pathname-name file)))
+                 (format s (compatfmt "~@<System definition file ~S contains definition for system ~S. ~
+Please only define ~S and secondary systems with a name starting with ~S (e.g. ~S) in that file.~@:>")
+               file name asd (strcat asd "/") (strcat asd "/test")))|#
+               )))
+
+(asdf/source-registry::initialize-source-registry '(:source-registry (:directory "~/repos/asdf-source-registry/") :inherit-configuration))
 ;; Add origin jvm and current jvm to fasl directory
 (multiple-value-bind (version builtwith arch) (lisp-implementation-version)
   (let ((running-java (jstatic "getProperty" "java.lang.System" "java.version"))
@@ -90,6 +104,7 @@ suitable for use as a directory name to segregate Lisp FASLs, C dynamic librarie
 (setf (gethash "trivia.level2" *standard-readtable-protected-systems*) t)
 (setf (gethash "trivia.level3" *standard-readtable-protected-systems*) t)
 (setf (gethash "cl-autowrap" *standard-readtable-protected-systems*) t)
+(setf (gethash "iterate" *standard-readtable-protected-systems*) t)
 
 ;; never interested in this
 (setq ext::*warn-on-redefinition* nil)
@@ -140,7 +155,7 @@ suitable for use as a directory name to segregate Lisp FASLs, C dynamic librarie
 					    (equalp (second a) (second b))			; location
 					    :from-end t)))))))
 
-(asdf/source-registry::initialize-source-registry '(:source-registry (:directory "~/repos/asdf-source-registry/") :inherit-configuration))
+;(asdf/source-registry::initialize-source-registry '(:source-registry (:directory "~/repos/asdf-source-registry/") :inherit-configuration))
 (defun asdf-reregister()
   (asdf::clear-source-registry)
   (asdf/source-registry::initialize-source-registry '(:source-registry (:directory "~/repos/asdf-source-registry/") :inherit-configuration)))
@@ -164,3 +179,4 @@ suitable for use as a directory name to segregate Lisp FASLs, C dynamic librarie
 )
 #+:background-.abclrc :name #+:background-.abclrc 'load-abclrc
 )
+(setq sys::*allow-defstruct-redefinition* t)
