@@ -1,11 +1,31 @@
 # Virtualizing LSW
 
-You must install [podman](https://podman.io/_ first, at least version 4. On a mac I use [MacPorts](https://www.macports.org/)```sudo port install podman``` 
+You must install [podman](https://podman.io/_ first, at least version 4.3.1 On a mac I use [MacPorts](https://www.macports.org/)
+```
+sudo port install podman
+``` 
+
+## Initialize the podman machine
+If you already have a podman virtual machine, delete it with 
+```
+podman machine rm podman-machine-default
+```
+then 
+```
+make init
+```
+This starts up a podman machine with more oomph than the default: 16G ram and 8 CPUs, "rootful"
+
+You will need to start up a podman machine, and again each time you reboot:
+```
+podman machine start
+```
 
 ## Build the image
 ```
-make image
+make build
 ```
+Takes a few minutes
 
 ## Run the image
 To run LSW and interact with a repl
@@ -14,38 +34,31 @@ make run
 ```
 You will be put into a shell. Run ```./lsw``` and wait for the prompt.
 
-## Save the image
-To save the image to a file, for instance to upload it somewhere
-```
-make save
-```
-
 ## Checkpoint 
-Checkpoint saves the state of a running LSW. When at the prompt, in another terminal, 
+Checkpoint saves the state of a running LSW. In a separate shell (not the one running LSW)
 ```
 make checkpoint
 ```
-This will make a file called lsw-checkpoint-<container-id>.tar.gz
-
-Note, this is [broken](https://github.com/containers/podman/issues/12053) for the moment.
+This will quit the running LSW
 
 ## Resume a checkpoint 
 ```
-make restore
-```
-This will resume the most recent saved checkpoint. Note that you can have only one copy running. 
-If the container is stopped but not pruned you will get an error. In that case use 
-```
 make resume
 ```
-Otherwise you can get rid of old non-running containers with 
+Hit return to get the repl prompt.
+
+## Start over
+Assuming you aren't running the container, 
 ```
 podman container prune 
 ```
+This will delete the checkpoint. 
+
+# Instructions below are out of date
+
+Will be updated once I verify I can run slime
 
 ## Inside emacs
-
-(instructions out of date)
 
 To run LSW from docker image inside your local emacs:
  - put https://github.com/emacs-pe/docker-tramp.el somewhere, add the path to the emacs load-path, and (require 'docker-tramp)
